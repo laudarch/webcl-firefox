@@ -4,6 +4,9 @@
 //   1: Enabled, no prompt.
 pref("extensions.webcl.allowed", -1);
 
+// Enable / disable WebCL validator. true=enabled, false=disabled.
+pref("extensions.webcl.enable-validator", false);
+
 // Set explicit OpenCL library file with path. Default is "": autodetect.
 pref("extensions.webcl.opencllib", "");
 
@@ -11,8 +14,6 @@ pref("extensions.webcl.opencllib", "");
 pref("extensions.webcl.log", false);
 pref("extensions.webcl.debug", false);
 pref("extensions.webcl.trace", false);
+pref("extensions.webcl.trace-resources", false);
+pref("extensions.webcl.os-console-output", false);
 
-// Select API mode
-//                   "": Default API
-//   "deprecated-1.0.3": Emulate old Nokia WebCL API
-/*pref("extensions.webcl.api-mode", "");*/

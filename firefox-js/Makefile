@@ -1,6 +1,5 @@
-BUILD_DATE = $(shell date +%Y-%m-%e)
-
-include buildconfig.inc
+BUILD_DATE = $(shell date +%Y-%m-%d)
+GIT_LATEST_COMMIT = $(shell git log | head -1 | cut -c 8-)
 
 ifeq ($(COMPONENT_NAME),)
   export COMPONENT_NAME=webcl
@@ -13,80 +12,83 @@ ifeq ($(SRC_PACKAGE),)
 endif
 
 
-all: typelib dist dist-src
+COMPONENTS = webclinit.js
 
+FRAMESCRIPT = main.js
 
-INTERFACES = IWebCL.idl IWebCLPlatform.idl IWebCLDevice.idl IWebCLContext.idl \
-  IWebCLCommandQueue.idl  IWebCLEvent.idl IWebCLMemoryObject.idl IWebCLBuffer.idl \
-  IWebCLImage.idl IWebCLProgram.idl IWebCLKernel.idl IWebCLSampler.idl \
-  IWebCLImageDescriptor.idl
-TYPELIBS = $(INTERFACES:%.idl=dist/components/%.xpt)
-INTERFACE_FILES = $(INTERFACES:%=interfaces/%)
+PAGESCRIPT = clientwrapper.js
 
-typelib: $(TYPELIBS)
+MODULES = logger.jsm common.jsm webclutils.jsm \
+   base.jsm mixin.jsm libloader.jsm releasemanager.jsm webclclasses.jsm \
+   webclconstructors.jsm \
+   webclasyncworkerapi.jsm validatorasyncworkerapi.jsm webclcallbackworkerapi.jsm
 
-dist/components/%.xpt: interfaces/%.idl
-	@mkdir -p dist/components
-	python external/xpidl/typelib.py -Iexternal/idl --cachedir=external/ -o $@ $<
+MODULES_WEBCL = webcl.jsm webclplatform.jsm webcldevice.jsm webclcontext.jsm \
+  webclcommandqueue.jsm webclevent.jsm webclmemoryobject.jsm webclprogram.jsm \
+  webclvalidatedprogram.jsm webclkernel.jsm webclsampler.jsm webclimagedescriptor.jsm
 
-
-COMPONENTS = webcl.js webclplatform.js webcldevice.js webclcontext.js webclcommandqueue.js \
-  webclevent.js webclmemoryobject.js webclprogram.js webclkernel.js webclsampler.js \
-  webclimagedescriptor.js \
-  clientwrapperloader.js
-MODULES = logger.jsm common.jsm webclutils.jsm base.jsm webclconstructors.jsm \
-  mixin.jsm
 MODULES_OCL = ocl_constants.jsm ocl_symbols.jsm ocl_types.jsm ocl_getinfo.jsm \
   ocl_exception.jsm ocl_libloader.jsm ocl_common.jsm \
   wrapper.jsm platform.jsm device.jsm commandqueue.jsm context.jsm event.jsm \
   kernel.jsm memoryobject.jsm program.jsm sampler.jsm
-MIXINS = owner.jsm securitycheckedcomponent.jsm
 
-SOURCE_FILES = $(COMPONENTS:%=js/%) $(MODULES:%=js/modules/%) $(MODULES_OCL:%=js/modules/lib_ocl/%) $(MIXINS:%=js/modules/mixins/%)
+MODULES_CLV = clv_symbols.jsm clv_libloader.jsm clv_wrapper.jsm clv_program.jsm
 
-dist: xpi
+MODULES_FRAMESCRIPT = webcl.jsm webclplatform.jsm webcldevice.jsm webclcontext.jsm \
+  webclcommandqueue.jsm webclevent.jsm webclmemoryobject.jsm webclprogram.jsm \
+  webclkernel.jsm webclsampler.jsm \
+  enums.jsm misc.jsm
 
-package: xpi
+MIXINS = owner.jsm
+
+WORKERS = webclasyncworker.js validatorasyncworker.js webclcallbackworker.js
+
+
+SOURCE_FILES = $(COMPONENTS:%=components/%) \
+  $(FRAMESCRIPT:%=content/framescript/%) \
+  $(PAGESCRIPT:%=content/page/%) \
+  $(MODULES:%=content/modules/%) \
+  $(MODULES_WEBCL:%=content/modules/webcl/%) \
+  $(MODULES_OCL:%=content/modules/lib_ocl/%) \
+  $(MODULES_CLV:%=content/modules/lib_clv/%) \
+  $(MODULES_FRAMESCRIPT:%=content/modules/framescript/%) \
+  $(MIXINS:%=content/modules/mixins/%) \
+  $(WORKERS:%=content/workers/%) \
+  content/webclversion.jsm
+
+
+PREF_FILES = defaults/preferences/webclprefs.js
+
+
+all: dist dist-src
 
 xpi: $(PACKAGE)
 
-$(PACKAGE): install.rdf chrome.manifest $(TYPELIBS) $(SOURCE_FILES) COPYING $(wildcard defaults/preferences/*.js) $(wildcard content/*.js)
-	@rm -f $(PACKAGE)
-	@mkdir -p dist/components
-	@cp $(COMPONENTS:%=js/%) dist/components/
-	@mkdir -p dist/resources/modules
-	@cp $(MODULES:%=js/modules/%) dist/resources/modules/
-	@mkdir -p dist/resources/modules/lib_ocl
-	@cp $(MODULES_OCL:%=js/modules/lib_ocl/%) dist/resources/modules/lib_ocl/
-	@mkdir -p dist/resources/modules/mixins
-	@cp $(MIXINS:%=js/modules/mixins/%) dist/resources/modules/mixins/
-	@mkdir -p dist/defaults/preferences
-	@cp defaults/preferences/*.js dist/defaults/preferences/
-	@cp -r content dist/
-	@(cd dist/content; sed 's/YYYY-MM-DD/$(BUILD_DATE)/' webclclientwrapper.js >tmp.js; mv tmp.js webclclientwrapper.js)
-	@cp install.rdf chrome.manifest COPYING dist/
-	@cd dist && zip -r ../$@ install.rdf chrome.manifest \
-	    components content resources defaults COPYING -x@../zipexclude.lst
-
+dist: $(PACKAGE)
 
 dist-src: $(SRC_PACKAGE)
 
-$(SRC_PACKAGE): Makefile buildconfig.inc install.rdf chrome.manifest $(INTERFACE_FILES) $(SOURCE_FILES) COPYING zipexclude.lst
-	@rm -f $(SRC_PACKAGE)
-	zip -r $@ $^ content defaults -x@zipexclude.lst
+
+content/webclversion.jsm: content/webclversion.jsm.in
+	@cp content/webclversion.jsm.in content/webclversion.jsm
+	@sed -i 's/YYYY-MM-DD/$(BUILD_DATE)\.$(GIT_LATEST_COMMIT)/' content/webclversion.jsm;
+
+$(PACKAGE): install.rdf chrome.manifest COPYING $(SOURCE_FILES) $(PREF_FILES)
+	@rm -f $(PACKAGE)
+	@zip -r $@ install.rdf chrome.manifest COPYING $(SOURCE_FILES) $(PREF_FILES) lib
 
 
-docs:
+$(SRC_PACKAGE):
+	@zip -r $@ chrome.manifest install.rdf Makefile COPYING content defaults components lib
 
 
 clean:
-	@rm -rf dist
 	@rm -f $(PACKAGE)
 	@rm -f $(SRC_PACKAGE)
-
+	@rm -f content/webclversion.jsm
 
 ultra-clean: clean
 	@find . -name "*~" -exec rm -f "{}" \;
 
 
-.PHONY: all typelib dist package xpi dist-src docs clean ultra-clean
+.PHONY: all dist dist-src xpi clean ultra-clean
