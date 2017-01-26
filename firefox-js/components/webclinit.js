@@ -18,7 +18,8 @@ const Cu = Components.utils;
 
 
 Cu.import("chrome://nrcwebcl/content/modules/common.jsm");
-Cu.import("chrome://nrcwebcl/content/modules/logger.jsm");
+//Cu.import("chrome://nrcwebcl/content/modules/logger.jsm");
+Cu.import("resource://gre/modules/Console.jsm");
 Cu.import("chrome://nrcwebcl/content/modules/webclutils.jsm");
 
 Cu.import("resource://gre/modules/XPCOMUtils.jsm");
